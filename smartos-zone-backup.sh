@@ -2,7 +2,7 @@
 
 ### LICENSE - (BSD 2-Clause) // ###
 #
-# Copyright (c) 2016, Daniel Plominski (ASS-Einrichtungssysteme GmbH)
+# Copyright (c) 2018, Daniel Plominski (ASS-Einrichtungssysteme GmbH)
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -34,7 +34,7 @@ export TZ=Europe/Berlin
 
 ### stage0 // ###
 SMARTOS=$(uname -a | egrep -c "SunOS|joyent")
-HOURDATE=$(date "+%d%m%y-%H")
+HOURDATE=$(date "+%y%m%d-%H")
 
 CONFIG="smartos-zone-backup.conf"
 INCLUDE="smartos-zone-backup.include"
@@ -46,6 +46,9 @@ GETSSHUSER=$(grep -s "SSHUSER" "$CONFIG" | sed 's/SSHUSER=//g' | sed 's/"//g')
 GETSSHPORT=$(grep -s "SSHPORT" "$CONFIG" | sed 's/SSHPORT=//g' | sed 's/"//g')
 GETLOCALSSHKEY=$(grep -s "LOCALSSHKEY" "$CONFIG" | sed 's/LOCALSSHKEY=//g' | sed 's/"//g')
 GETZFSDESTINATION=$(grep -s "ZFSDESTINATION" "$CONFIG" | sed 's/ZFSDESTINATION=//g' | sed 's/"//g')
+GETZFSCUSTOMDATASET=$(grep -s "ZFSCUSTOMDATASET" "$CONFIG" | sed 's/ZFSCUSTOMDATASET=//g' | sed 's/"//g')
+
+GETHOSTNAME=$(hostname | tr '.' '\n' | head -n 1)
 
 PRG="$0"
 ##/ need this for relative symlinks
@@ -200,6 +203,60 @@ cleansnap() {
    checksoft remove all _SNAP_ snapshots
 }
 
+#// FUNCTION: system configs backup (Version 1.0)
+systemconfigbackup() {
+   #// create snapshots
+   zfs snapshot zones/usbkey@_SNAP_"$HOURDATE"
+   checkhard create snapshot: zones/usbkey
+   zfs snapshot zones/opt@_SNAP_"$HOURDATE"
+   checkhard create snapshot: zones/opt
+   if [ -z "$GETZFSCUSTOMDATASET" ]
+   then
+      : # dummy
+   else
+      #// copy global zones index
+      cp -pf /etc/zones/index /"$GETZFSCUSTOMDATASET"/save_"$GETHOSTNAME"_etc-zones-index
+      checkhard copy /etc/zones/index into "$GETZFSCUSTOMDATASET" as save_"$GETHOSTNAME"_etc-zones-index
+      #// custom dataset
+      zfs snapshot "$GETZFSCUSTOMDATASET"@_SNAP_"$HOURDATE"
+      checkhard create snapshot: "$GETZFSCUSTOMDATASET"
+   fi
+   #// send snapshots
+   CHECKGETLOCALSSHKEY2=$(grep -s "LOCALSSHKEY" "$CONFIG" | sed 's/LOCALSSHKEY=//g' | sed 's/"//g' | wc -l | sed 's/ //g')
+   if [ "$CHECKGETLOCALSSHKEY2" = "0" ]
+   then
+      #// for zones/usbkey
+      zfs send zones/usbkey@_SNAP_"$HOURDATE" | ssh -p "$GETSSHPORT" "$GETSSHUSER"@"$GETSSHIP" zfs recv -Fv "$GETZFSDESTINATION"/zones/usbkey 2>> "$LOGFILE"
+      checkhard transfer snapshot: zones/usbkey
+      #// for zones/opt
+      zfs send zones/opt@_SNAP_"$HOURDATE" | ssh -p "$GETSSHPORT" "$GETSSHUSER"@"$GETSSHIP" zfs recv -Fv "$GETZFSDESTINATION"/zones/opt 2>> "$LOGFILE"
+      checkhard transfer snapshot: zones/opt
+      #// for custom dataset
+      if [ -z "$GETZFSCUSTOMDATASET" ]
+      then
+         : # dummy
+      else
+         zfs send "$GETZFSCUSTOMDATASET"@_SNAP_"$HOURDATE" | ssh -p "$GETSSHPORT" "$GETSSHUSER"@"$GETSSHIP" zfs recv -Fv "$GETZFSDESTINATION"/"$GETZFSCUSTOMDATASET" 2>> "$LOGFILE"
+         checkhard transfer snapshot: "$GETZFSCUSTOMDATASET"
+      fi
+   else
+      #// for zones/usbkey
+      zfs send zones/usbkey@_SNAP_"$HOURDATE" | ssh -p "$GETSSHPORT" -i "$GETLOCALSSHKEY" "$GETSSHUSER"@"$GETSSHIP" zfs recv -Fv "$GETZFSDESTINATION"/zones/usbkey 2>> "$LOGFILE"
+      checkhard transfer snapshot: zones/usbkey
+      #// for zones/opt
+      zfs send zones/opt@_SNAP_"$HOURDATE" | ssh -p "$GETSSHPORT" -i "$GETLOCALSSHKEY" "$GETSSHUSER"@"$GETSSHIP" zfs recv -Fv "$GETZFSDESTINATION"/zones/opt 2>> "$LOGFILE"
+      checkhard transfer snapshot: zones/opt
+      #// for custom dataset
+      if [ -z "$GETZFSCUSTOMDATASET" ]
+      then
+         : # dummy
+      else
+         zfs send "$GETZFSCUSTOMDATASET"@_SNAP_"$HOURDATE" | ssh -p "$GETSSHPORT" -i "$GETLOCALSSHKEY" "$GETSSHUSER"@"$GETSSHIP" zfs recv -Fv "$GETZFSDESTINATION"/"$GETZFSCUSTOMDATASET" 2>> "$LOGFILE"
+         checkhard transfer snapshot: "$GETZFSCUSTOMDATASET"
+      fi
+   fi
+}
+
 #// FUNCTION: sync buffer (Version 1.0)
 syncbuffer() {
    sync
@@ -275,7 +332,7 @@ esac
 'clean')
 ### stage1 // ###
 case $SMARTOS in
-1)
+   1)
 ### stage2 // ###
 checkrootuser
 cleanup
@@ -302,11 +359,41 @@ esac
 
 ### // stage1 ###
    ;;
+'systemconfigsbackup')
+### stage1 // ###
+case $SMARTOS in
+   1)
+### stage2 // ###
+checkrootuser
+cleanup
+checkconfig
+syncbuffer
+### // stage2 ###
+
+### stage3 // ###
+
+systemconfigbackup
+
+### // stage3 ###
+echo "" # dummy
+printf "\033[1;32msmartos-zone-backup finished.\033[0m\n"
+   ;;
+*)
+   # error 1
+   : # dummy
+   : # dummy
+   echo "[ERROR] Plattform = unknown"
+   exit 1
+   ;;
+esac
+
+### // stage1 ###
+   ;;
 ### ### ### ### ### ### ### ### ###
 *)
 printf "\033[1;31mWARNING: smartos-zone-backup is experimental and its not ready for production. Do it at your own risk.\033[0m\n"
 echo "" # usage
-echo "usage: $0 { backup | send | clean }"
+echo "usage: $0 { backup | send | clean | systemconfigsbackup }"
 ;;
 esac
 ### ### ### // ASS ### ### ###

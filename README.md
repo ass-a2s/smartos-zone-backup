@@ -18,7 +18,7 @@ Usage:
    [root@edv-test-smartos /zones/ass.de/admin]# ./smartos-zone-backup.sh
    WARNING: smartos-zone-backup is experimental and its not ready for production. Do it at your own risk.
 
-   usage: ./smartos-zone-backup.sh { backup | send | clean }
+   usage: ./smartos-zone-backup.sh { backup | send | clean | systemconfigsbackup }
    [root@edv-test-smartos /zones/ass.de/admin]#
 ```
 
@@ -81,6 +81,29 @@ Example: clean
 
    smartos-zone-backup finished.
    [root@edv-test-smartos /zones/ass.de/admin]#
+```
+
+Example: systemconfigsbackup
+============================
+```
+   [root@assg15-labor /zones/ass.de/admin]# ./smartos-zone-backup.sh systemconfigsbackup
+   [   OK   ] using smartos-zone-backup config
+   [   OK   ] 'sync buffer'
+   [   OK   ] 'create snapshot: zones/usbkey'
+   [   OK   ] 'create snapshot: zones/opt'
+   [   OK   ] 'create snapshot: zones/ass.de'
+   receiving full stream of zones/usbkey@_SNAP_180512-11 into offsite/assg15/zones/usbkey@_SNAP_180512-11
+   received 73.2KB stream in 1 seconds (73.2KB/sec)
+   [   OK   ] 'transfer snapshot: zones/usbkey'
+   receiving full stream of zones/opt@_SNAP_180512-11 into offsite/assg15/zones/opt@_SNAP_180512-11
+   received 36.1MB stream in 1 seconds (36.1MB/sec)
+   [   OK   ] 'transfer snapshot: zones/opt'
+   receiving full stream of zones/ass.de@_SNAP_180512-11 into offsite/assg15/zones/ass.de@_SNAP_180512-11
+   received 16.8GB stream in 278 seconds (61.7MB/sec)
+   [   OK   ] 'transfer snapshot: zones/ass.de'
+
+   smartos-zone-backup finished.
+   [root@assg15-labor /zones/ass.de/admin]#
 ```
 
 Errata
