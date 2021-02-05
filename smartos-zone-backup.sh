@@ -203,10 +203,10 @@ sendsnapforce() {
    CHECKGETLOCALSSHKEY=$(grep -s "LOCALSSHKEY" "$CONFIG" | sed 's/LOCALSSHKEY=//g' | sed 's/"//g' | wc -l | sed 's/ //g')
    if [ "$CHECKGETLOCALSSHKEY" = "0" ]
    then
-      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -pv % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -Rv % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
       checksoft hint: if zfs send fails partially please delete some old snapshots on the target
    else
-      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -pv % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -Rv % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
       checksoft hint: if zfs send fails partially please delete some old snapshots on the target
    fi
 }
