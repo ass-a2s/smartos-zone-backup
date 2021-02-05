@@ -163,9 +163,9 @@ createsnap() {
       awk 'NF' "$EXCLUDE" > /tmp/smartos_zone_backup_exclude_1
       mv /tmp/smartos_zone_backup_exclude_1 "$EXCLUDE"
 
-      zfs list | /usr/xpg4/bin/grep -f /tmp/smartos_zone_backup_1 | egrep -v "zones/cores" | awk '{print $1}' | /usr/xpg4/bin/grep -v -f "$EXCLUDE" | xargs -L 1 -I % zfs snapshot %@_SNAP_"$HOURDATE"
+      zfs list | egrep "^zones" | /usr/xpg4/bin/grep -f /tmp/smartos_zone_backup_1 | egrep -v "zones/cores" | awk '{print $1}' | /usr/xpg4/bin/grep -v -f "$EXCLUDE" | xargs -L 1 -I % zfs snapshot %@_SNAP_"$HOURDATE"
    else
-      zfs list | /usr/xpg4/bin/grep -f /tmp/smartos_zone_backup_1 | egrep -v "zones/cores" | awk '{print $1}' | xargs -L 1 -I % zfs snapshot %@_SNAP_"$HOURDATE"
+      zfs list | egrep "^zones" | /usr/xpg4/bin/grep -f /tmp/smartos_zone_backup_1 | egrep -v "zones/cores" | awk '{print $1}' | xargs -L 1 -I % zfs snapshot %@_SNAP_"$HOURDATE"
    fi
 }
 
@@ -173,13 +173,13 @@ createsnap() {
 listsnap() {
    echo "" # dummy
    echo "list created snapshots:"
-   CHECKSNAPS=$(zfs list -t snapshot | grep "@_SNAP_" | wc -l | sed 's/ //g')
+   CHECKSNAPS=$(zfs list -t snapshot | egrep "^zones" | grep "@_SNAP_" | wc -l | sed 's/ //g')
    if [ "$CHECKSNAPS" = "0" ]
    then
       echo "[$(printf "\033[1;31m FAILED \033[0m\n")] can't find any _SNAP_ snapshots, please use the backup command at first"
       exit 1
    fi
-   zfs list -t snapshot | grep "@_SNAP_"
+   zfs list -t snapshot | egrep "^zones" | grep "@_SNAP_"
    echo "" # dummy
 }
 
@@ -189,17 +189,31 @@ sendsnap() {
    CHECKGETLOCALSSHKEY=$(grep -s "LOCALSSHKEY" "$CONFIG" | sed 's/LOCALSSHKEY=//g' | sed 's/"//g' | wc -l | sed 's/ //g')
    if [ "$CHECKGETLOCALSSHKEY" = "0" ]
    then
-      zfs list -t snapshot -o name | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
       checksoft hint: if zfs send fails partially please delete some old snapshots on the target
    else
-      zfs list -t snapshot -o name | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      checksoft hint: if zfs send fails partially please delete some old snapshots on the target
+   fi
+}
+
+#// FUNCTION: send-force snapshots (Version 1.0)
+sendsnapforce() {
+   #// check ssh key login
+   CHECKGETLOCALSSHKEY=$(grep -s "LOCALSSHKEY" "$CONFIG" | sed 's/LOCALSSHKEY=//g' | sed 's/"//g' | wc -l | sed 's/ //g')
+   if [ "$CHECKGETLOCALSSHKEY" = "0" ]
+   then
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -pv % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      checksoft hint: if zfs send fails partially please delete some old snapshots on the target
+   else
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -pv % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
       checksoft hint: if zfs send fails partially please delete some old snapshots on the target
    fi
 }
 
 #// FUNCTION: clean up snapshots (Version 1.0)
 cleansnap() {
-   zfs list -t snapshot -o name | grep "@_SNAP_*" | xargs -L 1 -I % zfs destroy -v %
+   zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_*" | xargs -L 1 -I % zfs destroy -v %
    checksoft remove all _SNAP_ snapshots
 }
 
@@ -329,6 +343,37 @@ esac
 
 ### // stage1 ###
    ;;
+'send-force')
+### stage1 // ###
+case $SMARTOS in
+   1)
+### stage2 // ###
+checkrootuser
+cleanup
+checkconfig
+syncbuffer
+### // stage2 ###
+
+### stage3 // ###
+
+listsnap
+sendsnapforce
+
+### // stage3 ###
+echo "" # dummy
+printf "\033[1;32msmartos-zone-backup finished.\033[0m\n"
+   ;;
+*)
+   # error 1
+   : # dummy
+   : # dummy
+   echo "[ERROR] Plattform = unknown"
+   exit 1
+   ;;
+esac
+
+### // stage1 ###
+   ;;
 'clean')
 ### stage1 // ###
 case $SMARTOS in
@@ -393,7 +438,7 @@ esac
 *)
 printf "\033[1;31mWARNING: smartos-zone-backup is experimental and its not ready for production. Do it at your own risk.\033[0m\n"
 echo "" # usage
-echo "usage: $0 { backup | send | clean | systemconfigsbackup }"
+echo "usage: $0 { backup | send | send-force | clean | systemconfigsbackup }"
 ;;
 esac
 ### ### ### // ASS ### ### ###
