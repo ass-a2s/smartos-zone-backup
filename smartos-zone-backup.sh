@@ -203,10 +203,22 @@ sendsnapforce() {
    CHECKGETLOCALSSHKEY=$(grep -s "LOCALSSHKEY" "$CONFIG" | sed 's/LOCALSSHKEY=//g' | sed 's/"//g' | wc -l | sed 's/ //g')
    if [ "$CHECKGETLOCALSSHKEY" = "0" ]
    then
-      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -Rv % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      #// clean up remote snapshots
+      echo "... clean up remote snapshots ..."
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs destroy -Fv %" 2> "$LOGFILE"
+      checksoft: clean up remote snapshots
+      #// send snapshots
+      echo "... send snapshots ..."
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -v % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
       checksoft hint: if zfs send fails partially please delete some old snapshots on the target
    else
-      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -Rv % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
+      #// clean up remote snapshots
+      echo "... clean up remote snapshots ..."
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs destroy -Fv %" 2> "$LOGFILE"
+      checksoft: clean up remote snapshots
+      #// send snapshots
+      echo "... send snapshots ..."
+      zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -v % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
       checksoft hint: if zfs send fails partially please delete some old snapshots on the target
    fi
 }
