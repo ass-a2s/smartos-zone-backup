@@ -206,7 +206,7 @@ sendsnapforce() {
       #// clean up remote snapshots
       echo "... clean up remote snapshots ..."
       zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | sed 's|\(.*\)\@_SNAP_.*$|\1|' | xargs -L 1 -I % sh -c "ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs destroy -Rv %" 2> "$LOGFILE"
-      checksoft: clean up remote snapshots
+      checksoft clean up remote snapshots
       #// send snapshots
       echo "... send snapshots ..."
       zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -v % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
@@ -215,7 +215,7 @@ sendsnapforce() {
       #// clean up remote snapshots
       echo "... clean up remote snapshots ..."
       zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | sed 's|\(.*\)\@_SNAP_.*$|\1|' | xargs -L 1 -I % sh -c "ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs destroy -Rv %" 2> "$LOGFILE"
-      checksoft: clean up remote snapshots
+      checksoft clean up remote snapshots
       #// send snapshots
       echo "... send snapshots ..."
       zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send -v % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
