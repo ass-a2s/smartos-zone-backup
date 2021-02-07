@@ -143,6 +143,14 @@ else
 fi
 }
 
+#// FUNCTION: check state without exit (Version 1.0)
+checksoftzfssend() {
+if [ $? = 124 ]
+then
+   echo "[$(printf "\033[1;33mWARNING\033[0m\n")] the target already has a ZFS snapshot '"$@"'"
+fi
+}
+
 #// FUNCTION: create snapshots (Version 1.0)
 createsnap() {
    vmadm list | grep "stopped" | awk '{print $1}' > /tmp/smartos_zone_backup_1
@@ -190,10 +198,10 @@ sendsnap() {
    if [ "$CHECKGETLOCALSSHKEY" = "0" ]
    then
       zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send % | ssh -p '"$GETSSHPORT"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
-      checksoft hint: if zfs send fails partially please delete some old snapshots on the target
+      checksoftzfssend hint: if zfs send fails partially please delete some old snapshots on the target
    else
       zfs list -t snapshot -o name | egrep "^zones" | grep "@_SNAP_" | xargs -L 1 -I % sh -c "zfs send % | ssh -p '"$GETSSHPORT"' -i '"$GETLOCALSSHKEY"' '"$GETSSHUSER"'@'"$GETSSHIP"' zfs recv -Fv '"$GETZFSDESTINATION"'/%" 2> "$LOGFILE"
-      checksoft hint: if zfs send fails partially please delete some old snapshots on the target
+      checksoftzfssend hint: if zfs send fails partially please delete some old snapshots on the target
    fi
 }
 
